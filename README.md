@@ -13,6 +13,8 @@ It also requires the KY2019 GFF.
 wget -U firefox http://ghost.zool.kyoto-u.ac.jp/datas/HT.KYGene.gff3.zip
 unzip HT.KYGene.gff3.zip
 ```
+`atacSeqFns` depends on the packages `circlize`, `ComplexHeatmap`, `DBI`, `GenomicFeatures`,`GenomicRanges`,`motifmatchr`,`rtracklayer`,`SummarizedExperiment`, and `TFBSTools`, all of which should be installed automatically.
+
 # Usage
 ```{bash}
 Rscript rnfExample.R
