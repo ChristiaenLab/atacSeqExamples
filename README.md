@@ -8,3 +8,12 @@ git clone https://github.com/ChristiaenLab/BSgenome.Crobusta.HT.KY
 cd BSgenome.Crobusta.HT.KY
 make
 ```
+It also requires the KY2019 GFF.
+````{bash}
+wget -U firefox http://ghost.zool.kyoto-u.ac.jp/datas/HT.KYGene.gff3.zip
+unzip HT.KYGene.gff3.zip
+```
+# Usage
+```{bash}
+Rscript rnfExample.R
+```
