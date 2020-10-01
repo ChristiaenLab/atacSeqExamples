@@ -98,7 +98,7 @@ dir.apply(pois,'enrichmentByFeature')
 ## Read expression data
 ```{r}
 # read expression data
-rnf <- read.csv('toptags_rnfko_KH_UniqieName.csv',row.names=2)[,-1]
+rnf <- read.csv('data-raw/toptags_rnfko_KH_UniqieName.csv',row.names=2)[,-1]
 
 # merge expression data with KHID
 rnfky <- merge(rnf,kh.ky,by.x=0,by.y="KHID")
