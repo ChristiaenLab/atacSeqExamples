@@ -17,13 +17,17 @@ When you click the **Knit** button a document will be generated that includes bo
 ```{r}
 # dependencies
 library(BSgenome.Crobusta.HT.KY)
-library(atacSeqFns)
+library(CrobustaMotifs)
+library(tfenrichr)
+library(peakToGene)
+library(dirfns)
+library(moreComplexHeatmap)
 ```
 
 ## Get KHID to KYID mapping
 ```{r}
 # get KH-to-KY table
-kh.ky <- read.table('KH2012_KY2019.txt',stringsAsFactors = F)
+kh.ky <- read.table('data-raw/KH2012_KY2019.txt',stringsAsFactors = F)
 names(kh.ky) <- c('KHID',"KYID")
 kh.ky$KHID <- paste0("KH2013:",kh.ky$KHID)
 kh.ky$KYID <- paste0("KY2019:",kh.ky$KYID)
@@ -31,12 +35,12 @@ kh.ky$KYID <- paste0("KY2019:",kh.ky$KYID)
 
 ## Parse genomic features from HT.Gene.gff3
 ```{r}
-htky <- getFeatures('HT.Gene.gff3')
+htky <- getFeatures('data-raw/HT.Gene.gff3')
 ```
 
 ## Read peak data
 ```{r}
-peaks <- import('accessomeKY.bed')
+peaks <- import('data-raw/accessomeKY.bed')
 ```
 
 ## Plot distribution of peak lengths
@@ -51,7 +55,7 @@ dir.hist(width(peaks),'peaklength',quant=.99)
 By default, getMatches() uses a set of TF motifs included with the package. You can also specify your own motifs.
 ```{r}
 # find motifs in each peak
-matches <- getMatches(peaks,Crobusta,'scores')
+matches <- getMatches(peaks,Crobusta,'scores',p.cutoff=1e-10)
 ```
 
 ## Find overlaps between peaks and features
@@ -60,6 +64,26 @@ matches <- getMatches(peaks,Crobusta,'scores')
 overlaps <- lapply(htky,getOverlaps,peaks)
 # select unique peak IDs in each feature
 featpeaks <- sapply(overlaps, function(x) unique(x[,1]))
+```
+
+## Regulatory matrices by feature
+```{r}
+tfGene <- lapply(overlaps,regMat,matches)
+tfGeneID <- strsplit(ID(CrobustaMotifs[colnames(matches)]),';')
+tfGeneID <- sapply(tfGeneID, function(x) sapply(x, function(y) kh.ky[kh.ky[,1]==y,2]))
+tfGeneID <- sapply(tfGeneID, paste, collapse=';')
+tfGene <- lapply(tfGene, function(x){
+	colnames(x) <- tfGeneID
+	return(x)
+})
+dir.apply(tfGene,'tfToGene',dir.tab,ext='tsv')
+dir.apply(tfGene, function(x) {
+	dir.hist(apply(x,2,sum),)
+})
+
+peakTF <- as.matrix(motifMatches(matches))*1
+colnames(peakTF) <- tfGeneID
+dir.tab(peakTF,'peak_TF',ext='tsv')
 ```
 
 ## Run enrichment test for motifs enriched in genomic features
