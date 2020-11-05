@@ -17,7 +17,7 @@ When you click the **Knit** button a document will be generated that includes bo
 ```{r}
 # dependencies
 library(BSgenome.Crobusta.HT.KY)
-library(CrobustaMotifs)
+library(CrobustaTFs)
 library(tfenrichr)
 library(peakToGene)
 library(dirfns)
@@ -41,6 +41,9 @@ htky <- getFeatures('data-raw/HT.Gene.gff3')
 ## Read peak data
 ```{r}
 peaks <- import('data-raw/accessomeKY.bed')
+
+DApeaks <- sapply(list.files("DApeaks", full.names = T), readLines)
+names(DApeaks) <- sub('.*\\/(.*)\\.txt', '\\1', names(DApeaks))
 ```
 
 ## Plot distribution of peak lengths
@@ -76,14 +79,21 @@ tfGene <- lapply(tfGene, function(x){
 	colnames(x) <- tfGeneID
 	return(x)
 })
-dir.apply(tfGene,'tfToGene',dir.tab,ext='tsv')
-dir.apply(tfGene, function(x) {
-	dir.hist(apply(x,2,sum),)
+
+dir.apply(tfGene, 'tfToGene', dir.tab, ext='tsv')
+dir.apply(tfGene, 'tfToGene', function(x, ...) {
+	dir.hist(apply(x,2,sum), ..., xlab='# matches')
 })
 
 peakTF <- as.matrix(motifMatches(matches))*1
 colnames(peakTF) <- tfGeneID
 dir.tab(peakTF,'peak_TF',ext='tsv')
+
+tmp <- apply(peakTF, 1, function(x) unique(unlist(strsplit(colnames(peakTF)[as.logical(x)], ';'))))
+sel <- sapply(tmp,length)>0
+tmp <- do.call(rbind, mapply(cbind, PeakID=row.names(peakTF)[sel], KYID=tmp[sel]))
+dir.tab(tmp, 'peakToTF', ext='tsv', row.names=F)
+dir.apply(featpeaks, 'peakByFeat',dir.tab, ext='tsv', col.names=F, row.names=F)
 ```
 
 ## Run enrichment test for motifs enriched in genomic features
