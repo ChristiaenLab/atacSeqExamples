@@ -13,17 +13,6 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-## Load dependencies
-```{r}
-# dependencies
-library(BSgenome.Crobusta.HT.KY)
-library(CrobustaTFs)
-library(tfenrichr)
-library(peakToGene)
-library(dirfns)
-library(moreComplexHeatmap)
-```
-
 ## Get KHID to KYID mapping
 ```{r}
 # get KH-to-KY table
@@ -35,6 +24,7 @@ kh.ky$KYID <- paste0("KY2019:",kh.ky$KYID)
 
 ## Parse genomic features from HT.Gene.gff3
 ```{r}
+library(peakToGene)
 htky <- getFeatures('data-raw/HT.Gene.gff3')
 ```
 
@@ -42,8 +32,20 @@ htky <- getFeatures('data-raw/HT.Gene.gff3')
 ```{r}
 peaks <- import('data-raw/accessomeKY.bed')
 
+library(RSQLite)
+con <- dbConnect(SQLite(),'atacCiona.db')
+
+library(CrobustaSQL)
+dbListTables(con)
+dbReadTable(con, 'peaksets')
+DApeaks <- getPeaksets(con)
+dir.apply(DApeaks, "DApeaks", row.names=F, col.names=F, append.date=F)
+
 DApeaks <- sapply(list.files("DApeaks", full.names = T), readLines)
 names(DApeaks) <- sub('.*\\/(.*)\\.txt', '\\1', names(DApeaks))
+
+library(dirfns)
+dir.apply(lapply(DApeaks, function(x) peaks[peaks$name%in%x]), 'DApeaks', dir.export)
 ```
 
 ## Plot distribution of peak lengths
@@ -55,10 +57,14 @@ dir.hist(width(peaks),'peaklength',quant=.99)
 ```
 
 ## Search peaks for motif matches
-By default, getMatches() uses a set of TF motifs included with the package. You can also specify your own motifs.
+By default, getMatches() uses motifs from the CrobustaTFs package. You can also specify your own motifs.
 ```{r}
 # find motifs in each peak
-matches <- getMatches(peaks,Crobusta,'scores',p.cutoff=1e-10)
+library(BSgenome.Crobusta.HT.KY)
+library(CrobustaTFs)
+library(tfenrichr)
+
+matches <- getMatches(peaks, Crobusta, 'scores', CrobustaMotifs, p.cutoff=5e-05)
 ```
 
 ## Find overlaps between peaks and features
@@ -103,6 +109,119 @@ pois <- lapply(featpeaks,matchPois,matches)
 
 #write test results to folder enrichmentByFeature
 dir.apply(pois,'enrichmentByFeature')
+
+mat <- lapply(
+	c('log2OR', 'padj', 'testMotifPerKbp'),
+	function(x) sapply(pois, '[', , x)
+)
+sel <- apply(mat[[2]] < .10, 1, any)
+
+library(moreComplexHeatmap)
+
+dotPscale(
+  mat[[1]][sel,],
+  mat[[2]][sel,],
+  mat[[3]][sel,],
+  outl.name='Motifs per Kbp',
+  file='featmotifs',
+  append.date=T,
+  height=50
+)
+```
+
+## Run enrichment test for motifs enriched in genomic features
+```{r}
+# use poisson test to find motif enrichment in each feature with whole accessome as background
+DApois <- lapply(DApeaks,matchPois,matches)
+
+#write test results to folder enrichmentByFeature
+dir.apply(DApois,'enrichmentByDA')
+
+mat <- lapply(
+	c('log2OR', 'padj', 'testMotifPerKbp'),
+	function(x) sapply(DApois, '[', , x)
+)
+sel <- apply(mat[[2]] < .10, 1, any)
+
+hyperDot(
+  mat[[1]][sel,],
+  mat[[2]][sel,],
+  mat[[3]][sel,],
+  size.name='Motifs per Kpb',
+  file='DATFs',
+  append.date=T,
+  height=50
+)
+dotPscale(
+  mat[[1]][sel,],
+  mat[[2]][sel,],
+  mat[[3]][sel,],
+  outl.name='Motifs per Kbp',
+  file='DATFs2',
+  append.date=T,
+  height=50
+)
+dotPscale(
+  mat[[1]],
+  mat[[2]],
+  mat[[3]],
+  outl.name='Motifs per Kbp',
+  file='DATFs3',
+  append.date=T,
+  height=50
+)
+```
+
+## Match 5mers
+```{r}
+pwms <- getPWMs(5)
+
+kmatches <- getMatches(peaks, Crobusta, 'scores', pwms)
+kpois <- lapply(DApeaks,matchPois,matches)
+dir.apply(kpois,'enrichmentByDA5mer')
+
+tmp <- apply(
+	motifMatches(kmatches), 1, 
+	function(x) unique(unlist(strsplit(colnames(kmatches)[as.logical(x)], ';')))
+)
+
+sel <- sapply(tmp,length)>0
+tmp <- do.call(rbind, mapply(cbind, PeakID=row.names(kmatches)[sel], KYID=tmp[sel]))
+dir.tab(tmp, 'peakTo5mer', ext='tsv', row.names=F)
+
+mat <- lapply(
+	c('log2OR', 'padj', 'testMotifPerKbp'),
+	function(x) sapply(kpois, '[', , x)
+)
+sel <- apply(mat[[2]] < .10, 1, any)
+
+hyperDot(
+  mat[[1]][sel,],
+  mat[[2]][sel,],
+  mat[[3]][sel,],
+  size.name='Motifs per Kpb',
+  file='DA5mers',
+  append.date=T,
+  height=50
+)
+dotPscale(
+  mat[[1]][sel,],
+  mat[[2]][sel,],
+  mat[[3]][sel,],
+  outl.name='Motifs per Kbp',
+  file='DA5mers2',
+  append.date=T,
+  height=50
+)
+dotPscale(
+  mat[[1]],
+  mat[[2]],
+  mat[[3]],
+  outl.name='Motifs per Kbp',
+  file='DA5mers3',
+  append.date=T,
+  height=50
+)
 ```
 
 ## Read expression data
@@ -147,11 +266,13 @@ mergeStats <- function(colname, tests){
 downmat <- lapply(colnames(downtest[[1]]), mergeStats, downtest)
 names(downmat) <- colnames(downtest[[1]])
 
-hmdot(
+dotPscale(
   downmat$log2OR,
   downmat$padj,
   downmat$testMotifPerKbp,
-  'downregEnrichment',
+  outl.name='Motifs per Kbp',
+  file='downregEnrichment',
+  append.date=T,
   height=50
 )
 ```
@@ -162,19 +283,30 @@ hmdot(
 sel <- apply(downmat$log2OR,1, function(x)any(x>0)) & apply(downmat$padj,1, function(x)any(x<.05))
 downmat <- lapply(downmat,'[',sel,)
 
-hmdot(
+dotPscale(
   downmat$log2OR,
   downmat$padj,
   downmat$testMotifPerKbp,
-  'downregEnrichmentSig',
+  outl.name='Motifs per Kbp',
+  file='downregEnrichmentSig',
+  append.date=T,
   height=15
 )
 
-hmdot(
+dotPscale(
   downmat$log2OR,
   downmat$padj,
   downmat$testMotifPerKbp/downmat$bgMotifPerKbp,
-  'downregEnrichmentScaled',
+  outl.name='Motifs per Kbp',
+  file='downregEnrichmentScaled',
+  append.date=T,
   height=15
 )
+```
+
+## Rnf peaks by differential accessibilty
+```{r}
+# merge rnf peaks
+alldown <- unique(unlist(lapply(downreg, '[', , 'PeakID')))
+lapply(DApeaks, intersect, alldown)
 ```
