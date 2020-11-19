@@ -25,31 +25,13 @@ kh.ky$KYID <- paste0("KY2019:",kh.ky$KYID)
 ## Parse genomic features from HT.Gene.gff3
 ```{r}
 library(peakToGene)
+?getFeatures
 htky <- getFeatures('data-raw/HT.Gene.gff3')
-```
-
-## Read peak data
-```{r}
-peaks <- import('data-raw/accessomeKY.bed')
-
-library(RSQLite)
-con <- dbConnect(SQLite(),'atacCiona.db')
-
-library(CrobustaSQL)
-dbListTables(con)
-dbReadTable(con, 'peaksets')
-DApeaks <- getPeaksets(con)
-dir.apply(DApeaks, "DApeaks", row.names=F, col.names=F, append.date=F)
-
-DApeaks <- sapply(list.files("DApeaks", full.names = T), readLines)
-names(DApeaks) <- sub('.*\\/(.*)\\.txt', '\\1', names(DApeaks))
-
-library(dirfns)
-dir.apply(lapply(DApeaks, function(x) peaks[peaks$name%in%x]), 'DApeaks', dir.export)
 ```
 
 ## Plot distribution of peak lengths
 ```{r}
+library(dirfns)
 # plot peak lengths
 dir.hist(width(peaks),'peaklength_total')
 # plot only 99% quantile of peak lengths
@@ -61,9 +43,18 @@ By default, getMatches() uses motifs from the CrobustaTFs package. You can also 
 ```{r}
 # find motifs in each peak
 library(BSgenome.Crobusta.HT.KY)
-library(CrobustaTFs)
-library(tfenrichr)
+Crobusta
+```
 
+```{r}
+library(CrobustaTFs)
+CrobustaMotifs
+?CrobustaMotifs
+```
+
+```{r}
+library(tfenrichr)
+?getMatches
 matches <- getMatches(peaks, Crobusta, 'scores', CrobustaMotifs[1:100], p.cutoff=5e-05)
 ```
 
@@ -135,9 +126,28 @@ dotPscale(
   outl.name='Motifs per Kbp',
   file='featmotifs',
   append.date=T,
-  height=50
+  height=15
 )
 ```
+## Read peak data
+```{r}
+peaks <- import('data-raw/accessomeKY.bed')
+
+library(RSQLite)
+con <- dbConnect(SQLite(),'atacCiona.db')
+
+library(CrobustaSQL)
+dbListTables(con)
+dbReadTable(con, 'peaksets')
+DApeaks <- getPeaksets(con)
+dir.apply(DApeaks, "DApeaks", row.names=F, col.names=F, append.date=F)
+
+DApeaks <- sapply(list.files("DApeaks", full.names = T), readLines)
+names(DApeaks) <- sub('.*\\/(.*)\\.txt', '\\1', names(DApeaks))
+
+dir.apply(lapply(DApeaks, function(x) peaks[peaks$name%in%x]), 'DApeaks', dir.export)
+```
+
 
 ## Run enrichment test for motifs enriched in genomic features
 ```{r}
@@ -182,11 +192,15 @@ dotPscale(
 )
 ```
 
-## Match 5mers
+## Match 6mers
 ```{r}
-pwms <- getPWMs(5)
+pwms <- getPWMs(6)
+pwms
+pwms[[1]]
+```
 
-kmatches <- getMatches(peaks, Crobusta, 'scores', pwms)
+```{r}
+kmatches <- getMatches(peaks, Crobusta, 'scores', pwms[1:100])
 kpois <- lapply(DApeaks,matchPois,matches)
 dir.apply(kpois,'enrichmentByDA5mer')
 
@@ -197,7 +211,7 @@ tmp <- apply(
 
 sel <- sapply(tmp,length)>0
 tmp <- do.call(rbind, mapply(cbind, PeakID=row.names(kmatches)[sel], KYID=tmp[sel]))
-dir.tab(tmp, 'peakTo5mer', ext='tsv', row.names=F)
+dir.tab(tmp, 'peakTo6mer', ext='tsv', row.names=F)
 
 mat <- lapply(
 	c('log2OR', 'padj', 'testMotifPerKbp'),
@@ -210,7 +224,7 @@ hyperDot(
   mat[[2]][sel,],
   mat[[3]][sel,],
   size.name='Motifs per Kpb',
-  file='DA5mers',
+  file='DA6mers',
   append.date=T,
   height=50
 )
@@ -219,7 +233,7 @@ dotPscale(
   mat[[2]][sel,],
   mat[[3]][sel,],
   outl.name='Motifs per Kbp',
-  file='DA5mers2',
+  file='DA6mers2',
   append.date=T,
   height=50
 )
@@ -228,7 +242,7 @@ dotPscale(
   mat[[2]],
   mat[[3]],
   outl.name='Motifs per Kbp',
-  file='DA5mers3',
+  file='DA6mers3',
   append.date=T,
   height=50
 )
