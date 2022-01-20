@@ -32,6 +32,10 @@ htky <- getFeatures('data-raw/HT.Gene.gff3')
 ## Plot distribution of peak lengths
 ```{r}
 library(dirfns)
+
+peaks <- import('data-raw/accessomeKY.bed')
+names(peaks) <- peaks$name
+
 # plot peak lengths
 dir.hist(width(peaks),'peaklength_total')
 # plot only 99% quantile of peak lengths
@@ -129,19 +133,9 @@ dotPscale(
   height=15
 )
 ```
+
 ## Read peak data
 ```{r}
-peaks <- import('data-raw/accessomeKY.bed')
-
-library(RSQLite)
-con <- dbConnect(SQLite(),'atacCiona.db')
-
-library(CrobustaSQL)
-dbListTables(con)
-dbReadTable(con, 'peaksets')
-DApeaks <- getPeaksets(con)
-dir.apply(DApeaks, "DApeaks", row.names=F, col.names=F, append.date=F)
-
 DApeaks <- sapply(list.files("DApeaks", full.names = T), readLines)
 names(DApeaks) <- sub('.*\\/(.*)\\.txt', '\\1', names(DApeaks))
 
@@ -170,7 +164,7 @@ hyperDot(
   size.name='Motifs per Kpb',
   file='DATFs',
   append.date=T,
-  height=50
+  height=15
 )
 dotPscale(
   mat[[1]][sel,],
@@ -179,7 +173,7 @@ dotPscale(
   outl.name='Motifs per Kbp',
   file='DATFs2',
   append.date=T,
-  height=50
+  height=15
 )
 dotPscale(
   mat[[1]],
@@ -188,7 +182,7 @@ dotPscale(
   outl.name='Motifs per Kbp',
   file='DATFs3',
   append.date=T,
-  height=50
+  height=15
 )
 ```
 
@@ -226,7 +220,7 @@ hyperDot(
   size.name='Motifs per Kpb',
   file='DA6mers',
   append.date=T,
-  height=50
+  height=15
 )
 dotPscale(
   mat[[1]][sel,],
@@ -235,7 +229,7 @@ dotPscale(
   outl.name='Motifs per Kbp',
   file='DA6mers2',
   append.date=T,
-  height=50
+  height=15
 )
 dotPscale(
   mat[[1]],
@@ -244,7 +238,7 @@ dotPscale(
   outl.name='Motifs per Kbp',
   file='DA6mers3',
   append.date=T,
-  height=50
+  height=15
 )
 ```
 
